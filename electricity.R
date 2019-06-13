@@ -1,7 +1,7 @@
 library(data.table)
 library(xgboost)
 set.seed(78567)
-ts <- fread("unzip -p 'https://archive.ics.uci.edu/ml/machine-learning-databases/00321/LD2011_2014.txt.zip'", sep=';', dec = ',')
+ts <- fread("curl https://archive.ics.uci.edu/ml/machine-learning-databases/00321/LD2011_2014.txt.zip | funzip", sep=';', dec = ',')
 ts[,V1:=substr(V1,1,13)]
 ts <- ts[,lapply(.SD,sum),by=V1]
 setnames(ts,'V1','DAY_HR')
