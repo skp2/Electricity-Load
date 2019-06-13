@@ -1,5 +1,4 @@
 library(data.table)
-library(glmnet)
 library(xgboost)
 set.seed(78567)
 ts <- fread("unzip -p 'https://archive.ics.uci.edu/ml/machine-learning-databases/00321/LD2011_2014.txt.zip'", sep=';', dec = ',')
@@ -10,12 +9,8 @@ setnames(ts,'V1','DAY_HR')
 #create day/year/dow/month hr/month dow features
 long <- melt(ts, id.vars = c('DAY_HR'))
 long[,`:=`(day=substr(DAY_HR,1,10),hr=substr(DAY_HR,12,13))]
-#long[,yearday:=format(strptime(day,'%Y-%m-%d'),'%j' )]
 long[,train:=day>'2014-09-07']
 long[,dow:=format(strptime(day,'%Y-%m-%d'),'%w' )]
-#long[,wkyr:=format(strptime(day,'%Y-%m-%d'),'%V' )]
-#long[,prevwkyr:=format(strptime(day,'%Y-%m-%d')-24*7*3600,'%V' )]
-#long[,wkyrhr:=paste0(wkyr,hr) ]
 long[,monhr:=paste0(substr(day,6,7),hr)]
 long[,mondow:=paste0(substr(day,6,7),dow)]
 
@@ -26,9 +21,6 @@ long[,csum:=cumsum(prev.value24),by=variable]
 long <- long[csum>0,]
 
 long[,csum:=NULL]
-#for(c in paste0("prev.value",1:24)) {
-#  long[,c:=(value -c),by=variable]
-#}
 
 #compute a random cauchy projection for encoding large cardinality features
 sgn.cauchy <- function(dt, var){
@@ -66,13 +58,9 @@ truth <- long$value[long$train==1]
 long <- NULL
 
 #train using boosted trees
-#target <- long$value[long$train==0]
 bst <- xgboost(data = train, label = target, subsample=0.5,colsample_bytree =0.5,
                max_depth = 8, eta = .1, nthread = 4, nrounds = 100, objective = "reg:linear")
-#lasso <- cv.glmnet(train, target, family='gaussian', nfolds=6)
 preds <- exp(predict(bst, test, type='response'))-1
-#preds <- predict(bst, test, type='response')
-#preds <- exp(predict(lasso, test, type='response', lambda=lasso$lambda1se))-1
 preds <- ifelse(preds <0,0,preds)
 nd <- sum(abs(preds - truth))/sum(abs(truth))
 nrmse <- sqrt(sum((preds - truth)^2)*length(preds))/sum(abs(truth))
